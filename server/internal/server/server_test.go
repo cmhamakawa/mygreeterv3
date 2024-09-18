@@ -65,6 +65,40 @@ var _ = Describe("Mock Testing", func() {
 			Expect(err).To(HaveOccurred())
 		})
 	})
+
+	Context("when the server is available for SayGoodbye", func() {
+		It("should not retry the request", func() {
+			addr := &pb.Address{
+				Street:  "123 Main St",
+				City:    "Seattle",
+				State:   "WA",
+				Zipcode: 98012,
+			}
+			in := &pb.HelloRequest{Name: "Bob", Age: 53, Email: "test@test.com", Address: addr}
+			mockClient.EXPECT().SayGoodbye(gomock.Any(), gomock.Any()).Return(&pb.HelloReply{Message: "Goodbye, this is a successful mock response"}, nil).Times(1)
+			out, err := s.SayGoodbye(context.Background(), in)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out.Message).To(Equal("Goodbye, this is a successful mock response| appended by server"))
+		})
+	})
+
+	Context("when the server is unavailable for SayGoodbye", func() {
+		It("should retry the request", func() {
+			addr := &pb.Address{
+				Street:  "123 Main St",
+				City:    "Seattle",
+				State:   "WA",
+				Zipcode: 98012,
+			}
+			in := &pb.HelloRequest{Name: "Bob", Age: 53, Email: "test@test.com", Address: addr}
+
+			mockClient.EXPECT().SayGoodbye(gomock.Any(), gomock.Any()).Return(nil, errors.New("server unavailable")).Times(2)
+			_, err := s.SayGoodbye(context.Background(), in)
+			Expect(err).To(HaveOccurred())
+			_, err = s.SayGoodbye(context.Background(), in)
+			Expect(err).To(HaveOccurred())
+		})
+	})
 })
 
 var _ = Describe("Fakes Unit Testing", func() {
