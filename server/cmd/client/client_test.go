@@ -60,3 +60,51 @@ var _ = Describe("Client Cobra Cmd test", func() {
 		Expect(buf.String()).To(ContainSubstring("connect: connection refused"))
 	})
 })
+
+var _ = Describe("Client Cobra Cmd test for SayGoodbye", func() {
+	var serverPort int
+	var httpPort int
+	var cmd *cobra.Command
+
+	BeforeEach(func() {
+		serverPort = server.GetFreePort()
+		httpPort = server.GetFreePort()
+		server.StartServer(serverPort, httpPort, -1)
+		Eventually(func() bool {
+			return server.IsServerRunning(serverPort) && server.IsServerRunning(httpPort)
+		}, 10*time.Second).Should(BeTrue())
+
+		cmd = &cobra.Command{
+			Use:   "goodbye",
+			Short: "Call SayGoodbye",
+			Run:   goodbye,
+		}
+	})
+
+	AfterEach(func() {
+		SetOutput(os.Stdout)
+	})
+
+	It("should call Execute() and log the response message", func() {
+		var buf bytes.Buffer
+		SetOutput(&buf)
+
+		host := fmt.Sprintf("localhost:%d", serverPort)
+		options.RemoteAddr = host
+		options.JsonLog = true
+
+		goodbye(cmd, nil)
+		Expect(buf.String()).To(ContainSubstring("Echo back what you sent me (SayGoodbye)"))
+	})
+
+	It("should call Execute() and log error", func() {
+		var buf bytes.Buffer
+		SetOutput(&buf)
+
+		options.RemoteAddr = "fakeaddr"
+		options.JsonLog = true
+
+		goodbye(cmd, nil)
+		Expect(buf.String()).To(ContainSubstring("connect: connection refused"))
+	})
+})
