@@ -37,6 +37,21 @@ func sayHello(buf *bytes.Buffer, port int, req *pb.HelloRequest) {
 	client.SayHello(ctx, req)
 }
 
+func sayGoodbye(buf *bytes.Buffer, port int, req *pb.HelloRequest) {
+	logger := log.New(log.NewTextHandler(buf, nil))
+	host := fmt.Sprintf("localhost:%d", port)
+	options := interceptor.GetClientInterceptorLogOptions(logger, logattrs.GetAttrs())
+	options.APIOutput = buf
+	client, err := client.NewClient(host, options)
+	// logging the error for transparency, but not failing the test since retry interceptor will handle it
+	if err != nil {
+		log.Error("did not connect: " + err.Error())
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	client.SayGoodbye(ctx, req)
+}
+
 func AllocatePort() int {
 	port := GetFreePort()
 	Expect(port).ToNot(Equal(-1)) // must dynamically allocate port
@@ -156,6 +171,46 @@ var _ = Describe("Interceptor test", func() {
 			sayHello(&buf, serverPort, in) // "TestPanic" is a special name that triggers panic
 			Expect(buf.String()).To(ContainSubstring("SayHello.go, line:"))
 			Expect(strings.Count(buf.String(), "code=Unknown")).To(Equal(1)) // must handle panic by returning gRPC code unknown and output filename/line # of panic
+			})
+
+		It("should not retry the SayGoodbye request", func() {
+			var buf bytes.Buffer
+			sayGoodbye(&buf, serverPort, in)
+			Expect(strings.Count(buf.String(), "request-id")).To(Equal(1))
+			Expect(strings.Count(buf.String(), "OK")).To(Equal(1)) // must not retry
+		})
+
+		It("should validate the name length for SayGoodbye", func() {
+			var buf bytes.Buffer
+			in.Name = "Z"
+			sayGoodbye(&buf, serverPort, in)
+			Expect(strings.Count(buf.String(), "request-id")).To(Equal(1))
+			Expect(buf.String()).To(ContainSubstring("value length must be at least 2 characters")) // must return error b/c name < 2 letters
+		})
+
+		It("should validate the age range for SayGoodbye", func() {
+			var buf bytes.Buffer
+			in.Age = 353
+			sayGoodbye(&buf, serverPort, in)
+			Expect(strings.Count(buf.String(), "request-id")).To(Equal(1))
+			Expect(buf.String()).To(ContainSubstring("value must be greater than or equal to 1 and less than 150")) // must return error b/c age > 150
+		})
+
+		It("should validate the email format for SayGoodbye", func() {
+			var buf bytes.Buffer
+			in.Email = "test"
+			sayGoodbye(&buf, serverPort, in)
+			Expect(strings.Count(buf.String(), "request-id")).To(Equal(1))
+			Expect(buf.String()).To(ContainSubstring("value does not match regex pattern")) // must return error b/c invalid email
+		})
+
+		It("should recover from panic for SayGoodbye", func() {
+			os.Setenv("AKS_BIN_VERSION_GITBRANCH", "tomabraham/service")
+			var buf bytes.Buffer
+			in.Name = "TestPanic"
+			sayGoodbye(&buf, serverPort, in) // "TestPanic" is a special name that triggers panic
+			Expect(buf.String()).To(ContainSubstring("SayGoodbye.go, line:"))
+			Expect(strings.Count(buf.String(), "code=Unknown")).To(Equal(1)) // must handle panic by returning gRPC code unknown and output filename/line # of panic
 		})
 	})
 
@@ -219,6 +274,31 @@ var _ = Describe("REST call test", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(resp.Message).To(ContainSubstring("Echo back what you sent me (SayHello): MyName 53 test@test.com"))
+		})
+
+		It("should return successfully when making SayGoodbye call", func() {
+			logger := log.New(log.NewTextHandler(os.Stdout, nil))
+			// Create a new Configuration instance
+			cfg := &restsdk.Configuration{
+				BasePath:      fmt.Sprintf("http://0.0.0.0:%d", httpPort),
+				DefaultHeader: make(map[string]string),
+				UserAgent:     "Swagger-Codegen/1.0.0/go",
+				HTTPClient:    restlogger.NewLoggingClient(logger),
+			}
+
+			apiClient := restsdk.NewAPIClient(cfg)
+
+			service := apiClient.MyGreeterApi
+
+			helloRequestBody := restsdk.HelloRequest{
+				Name:  "MyName",
+				Age:   53,
+				Email: "test@test.com",
+			}
+			resp, _, err := service.MyGreeterSayGoodbye(context.Background(), helloRequestBody)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(resp.Message).To(ContainSubstring("Echo back what you sent me (SayGoodbye): MyName 53 test@test.com"))
 		})
 	})
 })

@@ -45,6 +45,10 @@ var _ = Describe("Mock Testing", func() {
 			out, err := s.SayHello(context.Background(), in)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(out.Message).To(Equal("Hello, this is a successful mock response| appended by server"))
+			mockClient.EXPECT().SayGoodbye(gomock.Any(), gomock.Any()).Return(&pb.HelloReply{Message: "Goodbye, this is a successful mock response"}, nil).Times(1)
+			out, err = s.SayGoodbye(context.Background(), in)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out.Message).To(Equal("Goodbye, this is a successful mock response| appended by server"))
 		})
 	})
 
@@ -62,6 +66,12 @@ var _ = Describe("Mock Testing", func() {
 			_, err := s.SayHello(context.Background(), in)
 			Expect(err).To(HaveOccurred())
 			_, err = s.SayHello(context.Background(), in)
+			Expect(err).To(HaveOccurred())
+
+			mockClient.EXPECT().SayGoodbye(gomock.Any(), gomock.Any()).Return(nil, errors.New("server unavailable")).Times(2)
+			_, err = s.SayGoodbye(context.Background(), in)
+			Expect(err).To(HaveOccurred())
+			_, err = s.SayGoodbye(context.Background(), in)
 			Expect(err).To(HaveOccurred())
 		})
 	})
