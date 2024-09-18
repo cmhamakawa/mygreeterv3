@@ -58,5 +58,35 @@ module azureSdkRoleAssignment 'br:servicehubregistry.azurecr.io/bicep/modules/su
   }
 }
 
+module newManagedIdentity 'new_managed_identity.bicep' = {
+  name: 'servicehub-mygreeterv3-new-managed-identityDeploy'
+  scope: resourceGroup(subscriptionId, resourceGroupName)
+  params: {
+    name: 'servicehub-mygreeterv3-newManagedIdentity'
+    location: rg.location
+    federatedIdentityCredentials: [
+      {
+        name: 'servicehub-mygreeterv3-new-fedIdentity'
+        issuer: aks.outputs.oidcIssuerUrl
+        subject: 'system:serviceaccount:${serviceAccountNamespace}:${serviceAccountName}'
+        audiences: [ 'api://azureadtokenexchange' ]
+      }
+    ]
+  }
+}
+
+module newAzureSdkRoleAssignment 'br:servicehubregistry.azurecr.io/bicep/modules/subscription-role-assignment:v3' = {
+  name: 'servicehub-mygreeterv3-new-azuresdk-role-assignmentDeploy'
+  scope: subscription(subscriptionId)
+  params: {
+    name: guid('servicehub-mygreeterv3-new-azureSdkRoleAssignment', subscriptionId, 'Owner', newManagedIdentity.outputs.principalId)
+    location: rg.location
+    roleDefinitionId: '8e3af657-a8ff-443c-a75c-2fe8c4bcb635' // Owner
+    principalId: newManagedIdentity.outputs.principalId
+    principalType: 'ServicePrincipal'
+    sharedResource: false
+  }
+}
+
 @sys.description('Client Id of the managed identity.')
 output clientId string = managedIdentity.outputs.clientId
