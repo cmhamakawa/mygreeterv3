@@ -1,4 +1,3 @@
-// Auto generated. Don't modify.
 package server
 
 import (
@@ -105,7 +104,7 @@ func GetFreePort() int {
 	return port
 }
 
-func StartServer(serverPort int, httpPort int, demoserverPort int) {
+func StartServer(serverPort int, httpPort int) {
 	go func() {
 		var serverOptions = Options{}
 		serverOptions.Port = serverPort
@@ -113,24 +112,10 @@ func StartServer(serverPort int, httpPort int, demoserverPort int) {
 		serverOptions.HTTPPort = httpPort
 		serverOptions.EnableAzureSDKCalls = true
 		serverOptions.SubscriptionID = "test"
-		if demoserverPort == -1 {
-			serverOptions.RemoteAddr = ""
-		} else {
-			serverOptions.RemoteAddr = fmt.Sprintf("localhost:%d", demoserverPort)
-		}
+		serverOptions.RemoteAddr = ""
 		Serve(serverOptions)
 	}()
 }
-
-// TODO: Uncomment the following code once demoserver is merged in
-// func StartDemoServer(demoserverPort int) {
-// 	go func() {
-// 		var demoserverOptions = demoserver.Options{}
-// 		demoserverOptions.Port = demoserverPort
-// 		demoserverOptions.JsonLog = false
-// 		demoserver.Serve(demoserverOptions)
-// 	}()
-// }
 
 func IsServerRunning(port int) bool {
 	timeout := time.Second

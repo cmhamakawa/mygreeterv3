@@ -43,15 +43,12 @@ func AllocatePort() int {
 	return port
 }
 
-func AllocateDistinctPorts() (int, int, int) {
+func AllocateDistinctPorts() (int, int) {
 	serverPort := AllocatePort()
 	httpPort := AllocatePort()
 	Expect(httpPort).ToNot(Equal(serverPort))
-	demoserverPort := AllocatePort()
-	Expect(demoserverPort).ToNot(Equal(serverPort))
-	Expect(demoserverPort).ToNot(Equal(httpPort))
 
-	return serverPort, httpPort, demoserverPort
+	return serverPort, httpPort
 }
 
 // TODO: Allow user to filter out serial test cases
@@ -60,12 +57,11 @@ func AllocateDistinctPorts() (int, int, int) {
 var _ = Describe("Interceptor test", func() {
 
 	var serverPort int
-	// var demoserverPort int
 	var httpPort int
 	var in *pb.HelloRequest
 
 	BeforeEach(func() {
-		serverPort, httpPort, _ = AllocateDistinctPorts()
+		serverPort, httpPort = AllocateDistinctPorts()
 		addr := &pb.Address{
 			Street:  "123 Main St",
 			City:    "Seattle",
@@ -96,25 +92,11 @@ var _ = Describe("Interceptor test", func() {
 
 	Context("when the server is available", func() {
 		BeforeEach(func() {
-
-			// StartDemoServer(demoserverPort)
-			// timeout := time.NewTimer(10 * time.Second)
-			// for {
-			// 	if IsServerRunning(demoserverPort) {
-			// 		break
-			// 	}
-			// 	time.Sleep(1 * time.Second)
-			// 	if !timeout.Stop() {
-			// 		<-timeout.C
-			// 		log.Error("Server startup check timed out")
-			// 		return
-			// 	}
-			// }
-			StartServer(serverPort, httpPort, -1)
+			StartServer(serverPort, httpPort)
 			// Explicitly testing state of server
-			// Continue with tests once server and demoserver and grpc-gateway are up and running
+			// Continue with tests once server and grpc-gateway are up and running
 			Eventually(func() bool {
-				return IsServerRunning(serverPort) && IsServerRunning(httpPort) // && IsServerRunning(demoserverPort)
+				return IsServerRunning(serverPort) && IsServerRunning(httpPort)
 			}, 10*time.Second).Should(BeTrue())
 		})
 
@@ -171,27 +153,13 @@ var _ = Describe("Interceptor test", func() {
 var _ = Describe("REST call test", func() {
 
 	var serverPort int
-	// var demoserverPort int
 	var httpPort int
 
 	BeforeEach(func() {
-		serverPort, httpPort, _ = AllocateDistinctPorts()
-		// StartDemoServer(demoserverPort)
-		// timeout := time.NewTimer(10 * time.Second)
-		// for {
-		// 	if IsServerRunning(demoserverPort) {
-		// 		break
-		// 	}
-		// 	time.Sleep(1 * time.Second)
-		// 	if !timeout.Stop() {
-		// 		<-timeout.C
-		// 		log.Error("Server startup check timed out")
-		// 		return
-		// 	}
-		// }
-		StartServer(serverPort, httpPort, -1)
+		serverPort, httpPort = AllocateDistinctPorts()
+		StartServer(serverPort, httpPort)
 		Eventually(func() bool {
-			return IsServerRunning(serverPort) && IsServerRunning(httpPort) //&& IsServerRunning(demoserverPort)
+			return IsServerRunning(serverPort) && IsServerRunning(httpPort)
 		}, 10*time.Second).Should(BeTrue())
 	})
 
